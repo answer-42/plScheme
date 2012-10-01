@@ -2,6 +2,8 @@
 use feature qw/switch/;
 use List::MoreUtils qw/zip/;
 
+use Data::Dumper;
+
 $env = {
     '+' => sub { $_[0]+$_[1] },
     '-' => sub { $_[0]-$_[1] },
@@ -17,6 +19,7 @@ $env = {
     'apply' => sub { $_[0]->(@{$_[1]}) },
     'length' => sub { +@{$_[0]} }, # scalar @{$_[0]} would be clearer
     'append' => sub { [@{$_[0]}, @{$_[1]}] },
+    'list' => sub { [@_[0..@_-1]] },
     OUTER => 0,
 };
 
@@ -33,10 +36,11 @@ sub find {
     return find($key, $$env{OUTER});
 }
 
-sub parse {
-    # BUG: Doesn't parse strings properly!
-    eval join ' ', map {s/([^\[\]]+)/'$1'/;
+sub scm_parse {
+    $_ = join ' ', map {s/([^\[\]]+)/'$1'/;
 			s/([^\[]+)/$1,/r} split /\s/, $_[0] =~ y/()/[]/r;
+    s/("[^"]*?)',(\s+)'([^"]*?"')/$1$2$3/g;
+    eval
 }
 
 sub scm_eval {
@@ -51,7 +55,8 @@ sub scm_eval {
 	when ('set!') { set($env, $$in[1], scm_eval($$in[2], $env)) }
 	when ('quote') { [@$in[1..@$in-1]] }
 	when ('begin') { [map { scm_eval($_, $env) } @$in[1..@$in-1]]->[-1] }
-	when ('call/cc') { ... # TODO }
+	when ('defmacro')
+	     { ... }
 	default {
 	    @exp = map {scm_eval($_, $env)} @$in;
 	    $exp[0]->(@exp[1..$#exp])
@@ -59,15 +64,28 @@ sub scm_eval {
     }
 }
 
-sub pe {
-    scm_eval parse($_[0]), $env
-}
 
 sub scm_write {
     $_ = shift;
     return '(' . (join ' ', @$_) . ')' if ref $_ eq 'ARRAY';
     return $_ if /^\d+(\.\d+)?$/;
-    return s/^"(.*)"$/$1/ if /^".*"$/;
+    s/^"(.*)"$/$1/, return $_ if /^".*?"$/;
+    return "function $_" if ref $_ eq 'CODE';
 
     warn "Didn't recognize type -- $_";
 }
+
+
+sub pe {
+    scm_eval scm_parse($_[0]), $env
+}
+
+sub scm_repl {
+    print '==> ';
+    while (<STDIN>) {
+	print scm_write(scm_eval(scm_parse($_), $env));
+	print "\n==> ";
+    }
+}
+
+scm_repl();

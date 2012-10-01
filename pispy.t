@@ -1,8 +1,13 @@
 ### Testing
 use Test::More 'no_plan';
-use Data::Dumper;
 
 require('pispy.pl');
+
+subtest 'Parser' => sub {
+    ok(print scm_parse('(string-join "abc def" " ghi")') eq
+       "['string-join', '\"abc def\"', '\" ghi\"']");
+    ok(print scm_parse('"test string"') eq "'\"test string\"'")
+};
 
 subtest 'Operators' => sub {
     is( pe("(- 4 5)"), '-1');
@@ -31,7 +36,8 @@ subtest 'Operators 2' => sub {
     is(pe('(car (quote 1 2 3 4))'),'1','car');
     is(pe('(apply + (cdr (quote 1 2 3)))'), '5', 'apply-cdr');
     is(pe('(length (quote 1 2 3 4))'), '4', 'length');
-
+    
+    ok( print pe('(list 1 2 3 4)') eq '1234', 'list');
     ok( print pe('(append (quote 1 2) (quote 3 4))') eq '1234', 'append');
     ok( print pe('(cdr (quote 1 2 3 4))') eq '234', 'cdr');
 };
@@ -40,11 +46,13 @@ subtest 'Writer' => sub {
     is(scm_write(pe('(quote 1 2 3 4)')), '(1 2 3 4)', 'quote');
     is(scm_write(pe('78')), 78, 'integer');
     is(scm_write(pe('123.89')), 123.89, 'floating point');
-    # is(scm_write(pe('"test string"')), 'test string', 'string');
-    # is(scm_write(pe()));
-    # is(scm_write(pe()));
+    is(scm_write(pe('"test string"')), 'test string', 'string');
+    is(scm_write(pe('(list 1 2 3 4)')), '(1 2 3 4)', 'list');
+    is(scm_write(pe('(list)')), '()', 'empty list 1');
+    is(scm_write(pe('(quote)')), '()', 'empty list 2');
     # is(scm_write(pe()));
     # is(scm_write(pe()));
 };
 
-#print Dumper([pe ('(quote 3 2 1)')]);
+
+#print Dumper parse('(append "abc" "avc sd")');
